@@ -1,0 +1,6 @@
+names:
+- sclerose
+nc: 1
+test: /home/jovyan/workspace/NEW_MICCAI_With_YOLOv8/datasets/refined/test
+train: /home/jovyan/workspace/NEW_MICCAI_With_YOLOv8/datasets/refined/train
+val: /home/jovyan/workspace/NEW_MICCAI_With_YOLOv8/datasets/refined/val
