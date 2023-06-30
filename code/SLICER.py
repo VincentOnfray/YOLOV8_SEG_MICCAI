@@ -6,14 +6,14 @@ isWindows = sys.platform.__contains__("win")
 sep = os.path.sep #path separator
 
 
-def loaddingList(relativeFolderPath,phase= None): 
+def loaddingList(relativeFolderPath,phase= None,absolute_path=''): 
     ''' 
     args : path to check, phase ('init' => check in the directory, else => check in ./images and ./labels of the directory)
-    exit : dictionary{"flair":[list of flair path in dir],"seg":[list of labels path in dir]}
+    exit : dictionary{"flair":[list of flair path in dir],"seg":[list of labels path in dir]} p
     '''
+    if(len(absolute_path)==0):
+        absolute_path = os.path.dirname(__file__)
 
-    absolute_path = os.path.dirname(__file__)
-    
     dir_abs_path = os.path.join(absolute_path, relativeFolderPath)
     flair=[]
     seg=[]
@@ -49,8 +49,8 @@ def loaddingList(relativeFolderPath,phase= None):
     flair.sort()
     seg.sort()
     
-    print("flair: "+str(len(flair)))
-    print("seg: "+str(len(seg)))
+    #print("flair: "+str(len(flair)))
+    #print("seg: "+str(len(seg)))
     dic['flair']=flair
     dic['seg']=seg
 
@@ -86,17 +86,7 @@ def repartitor(dic,relative_path):
                 old_file_name = str(old_file).split(sep)[-1]
                 destination = f"{relative_path}{sep}{database[i]}{sep}labels{sep}{old_file_name}"
                 os.rename(old_file, destination)
-
-                '''
-                if isWindows == False:
-                    os.system('mv '+dic['flair'][j]+' '+relative_path+'/'+database[i]+'/images')
-                    os.system('mv '+dic['seg'][j]+' '+relative_path+'/'+database[i]+'/labels')
-                else:
-
-                    #print('move '+str.replace(dic['flair'][j],"/","\\\\")+' '+windows_Relative_Path+'\\\\'+database[i]+'\\images')
-                    os.system('move '+str.replace(dic['flair'][j],"/","\\\\")+' '+windows_Relative_Path+"\\\\"+database[i]+'\\images')
-                    os.system("move "+str.replace(dic['seg'][j],"/","\\\\")+' '+windows_Relative_Path+"\\\\"+database[i]+'\\labels')
-'''
+                
 
 def reachSeuil(seuil,img,peak):
     ''' 
@@ -149,20 +139,18 @@ def emptyFolder(dirPath):
            
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
-    
-
-
-def slicer_main(relativeFolderPath, seuil, testSeuil=False):
-    path_img_dic=loaddingList(relativeFolderPath,'init')
+            
+def slicer_main(relativeFolderPath, seuil, testSeuil=False, forceAbsPath=''):
+    path_img_dic=loaddingList(relativeFolderPath,'init',forceAbsPath)
     repartitor(path_img_dic,relativeFolderPath)
 
     testResult=[]
     database = ['test','val','train']
-
+    PatientID = 0
     for folder in database:
         
-        path_img_dic = loaddingList(f"{relativeFolderPath}{sep}{folder}")
-        print('Folder: '+folder)
+        path_img_dic = loaddingList(f"{relativeFolderPath}{sep}{folder}",None,forceAbsPath)
+        print('[Folder]: '+folder)
         #os.system("rm -r "+relativeFolderPath[: -4]+'/refined/'+folder+'/images/*')
         #os.system("rm -r "+relativeFolderPath[: -4]+'/refined/'+folder+'/labels/*')
 
@@ -174,8 +162,11 @@ def slicer_main(relativeFolderPath, seuil, testSeuil=False):
         for i in range(int(len(path_img_dic['flair']))):
             path = path_img_dic['seg'][i]
             pathFlair = path_img_dic['flair'][i]
-            print("pathFlair", pathFlair)
-            print("path", path)
+            print("[Patient ID: ",PatientID,"]", pathFlair)
+            
+            nPatient= "Patient_"+str(PatientID)
+            PatientID += 1
+            
             imgSeg = sitk.ReadImage(path)
             
             if testSeuil == True:
@@ -208,9 +199,10 @@ def slicer_main(relativeFolderPath, seuil, testSeuil=False):
 
                         for j in range(len(strSegList)):
                            #print(f"iteration_{j}")
-                            nPatient= "Patient_"+str(i)
+                            
                             
                             if strSegList[j] == 'raw':
+                                print(nPatient)
                                 newSegPath = str(f"{newSegPath}{sep}refined{sep}{folder}{sep}labels{sep}MICCAI_{nPatient}_e{str(nbSlice)}.png")
                                 break
                             else:
@@ -221,7 +213,7 @@ def slicer_main(relativeFolderPath, seuil, testSeuil=False):
 
                         for j in range(len(strFlairList)):
                             if strFlairList[j] == 'raw':
-                                nPatient= "Patient_"+str(i)
+                               
                                 
                                 newFlairPath = str(f"{newFlairPath}{sep}refined{sep}{folder}{sep}images{sep}MICCAI_{nPatient}_e{str(nbSlice)}.png")
                                
@@ -270,24 +262,12 @@ def slicer_main(relativeFolderPath, seuil, testSeuil=False):
                 print("seuil max de "+folder+" pour "+str(seuil)+" img/seg = "+str(testResult[0])+"%")
 
     print("[DONE]")
+    
+    
+path_vers_datasets_raw = f'..{sep}datasets{sep}raw' #chemin relatif vers le répertoire dataset/raw
+seuil = 0 #seuil disciminant pour la sélection des coupes (int entre 1 et 100 => rapport nb pixels segementés/nb pixels)
+nb_coupe_par_scan = 50 #nb de coupes max extraites par fichier .nii.gz
+#print(os.path.isdir("../datasets/raw/test"))
 
-if __name__ == "__main__":
-    relative_path = sys.argv[1] 
-    seuil = float(sys.argv[2])
-    test = sys.argv[3]
-
-    #__ATTENTION__: il faut que les fichiers compressés d'origines soit dans le dossier contenant les répertoires 'test', 'val' et 'train' raw
-    #__ATTENTION__:les répertoires 'test', 'val' et 'train' doivent contenir un fichier 'images' et 'labels'
-
-    #_Rq_: le script répartit directement les fichiers .nii entre train(80 * 80%), val(20 * 20%) et test(20%) du fichier raw 
-
-    #executer le script dans le cli comme suit pour tester dataset: python3 slicer.py chemin_vers_repertoire_contenant_les_".nii" nb_clichés_par_patient True
-
-    if sys.argv[3] == "True":
-        print("#_____________TEST_____________#")
-        slicer_main(relative_path, seuil,testSeuil=True)
-
-    #executer le script dans le cli comme suit pour former dataset: python3 slicer.py chemin_vers_repertoire_contenant_fichier_'test','val'_et_'train'_(raw) seuil_tumeur/nb_pixel(entre 1 et 100) nb_clichés_par_patient_MAX
-    else:
-        print('#_____________SELECTION_____________#')
-        slicer_main(relative_path, seuil, test)
+print('#_____________SELECTION_____________#')
+slicer_main(path_vers_datasets_raw, seuil, nb_coupe_par_scan,forceAbsPath = f'/home/jovyan/workspace/Yolov8/YOLOV8_SEG_MICCAI/code')
