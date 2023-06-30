@@ -270,4 +270,4 @@ nb_coupe_par_scan = 50 #nb de coupes max extraites par fichier .nii.gz
 #print(os.path.isdir("../datasets/raw/test"))
 
 print('#_____________SELECTION_____________#')
-slicer_main(path_vers_datasets_raw, seuil, nb_coupe_par_scan,forceAbsPath = f'/home/jovyan/workspace/Yolov8/YOLOV8_SEG_MICCAI/code')
+slicer_main(path_vers_datasets_raw, seuil, nb_coupe_par_scan)
